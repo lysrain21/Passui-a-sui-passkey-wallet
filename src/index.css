@@ -1,45 +1,323 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --primary-dark: #0D1117;
+  /* 深邃的黑色背景 */
+  --secondary-dark: #161B22;
+  /* 卡片背景 */
+  --primary-blue: #388BFD;
+  /* 主要蓝色调，用于按钮和强调 */
+  --secondary-blue: #58A6FF;
+  /* 较亮的蓝色，用于悬停和链接 */
+  --accent-blue: #1F6FEB;
+  /* 更深的蓝色，用于边框或次要元素 */
+  --text-primary: #C9D1D9;
+  /* 主要文字颜色 */
+  --text-secondary: #8B949E;
+  /* 次要文字颜色 */
+  --border-radius-main: 12px;
+  /* 水滴般的圆角 */
+  --border-radius-small: 6px;
+  --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
 body {
   margin: 0;
+  font-family: var(--font-family);
+  background-color: var(--primary-dark);
+  color: var(--text-primary);
+  line-height: 1.6;
   display: flex;
-  flex-direction: row;
   justify-content: center;
-  align-items: center;
-  min-width: 320px;
   min-height: 100vh;
+  padding: 1rem;
 }
 
-.App {
-  max-width: 1280px;
+.App.theme-dark-blue {
+  width: 100%;
+  max-width: 900px;
+  /* 限制最大宽度以获得更好的阅读体验 */
   margin: 0 auto;
-  padding: 2rem;
   text-align: center;
 }
 
-.button {
-  position: relative;
-  padding: 8px 16px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  background-color: #fff;
+.app-header {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--accent-blue);
+  margin-bottom: 2rem;
+}
+
+.app-header h1 {
+  color: var(--secondary-blue);
+  font-size: 2.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.card {
+  background-color: var(--secondary-dark);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--border-radius-main);
+  padding: 1.5rem 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  text-align: left;
+}
+
+.card h2 {
+  color: var(--primary-blue);
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.6rem;
+  border-bottom: 1px solid var(--accent-blue);
+  padding-bottom: 0.5rem;
+}
+
+.card h3 {
+  color: var(--secondary-blue);
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.chat-input-container {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.chat-input {
+  flex-grow: 1;
+  padding: 0.75rem 1rem;
+  background-color: var(--primary-dark);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--border-radius-small);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.3);
+}
+
+.ai-message-display {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: rgba(56, 139, 253, 0.1);
+  /* 淡蓝色背景 */
+  border-left: 4px solid var(--primary-blue);
+  border-radius: var(--border-radius-small);
+  color: var(--text-primary);
+}
+
+.ai-message-display p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ai-message-display strong {
+  color: var(--secondary-blue);
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  /* 居中按钮组 */
+  flex-wrap: wrap;
+  /* 允许换行 */
+  margin-top: 1.5rem;
+}
+
+.btn-themed {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius-small);
+  border: none;
+  background-color: var(--primary-blue);
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
-.button:disabled {
-  opacity: 0.5;
+.btn-themed:hover:not(:disabled) {
+  background-color: var(--secondary-blue);
+  transform: translateY(-1px);
+}
+
+.btn-themed:active:not(:disabled) {
+  transform: translateY(0px);
+}
+
+.btn-themed:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
+.btn-wallet-action {
+  min-width: 180px;
+  /* 给钱包操作按钮一个最小宽度 */
+}
+
+.btn-faucet {
+  background-color: #1F6FEB;
+  /* 另一种蓝色调 */
+  margin-top: 1rem;
+  display: block;
+  /* 让它占据一行，如果需要 */
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 200px;
+}
+
+.btn-faucet:hover:not(:disabled) {
+  background-color: #388BFD;
+}
+
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-item {
+  background-color: var(--primary-dark);
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius-small);
+  border: 1px solid var(--accent-blue);
+}
+
+.info-label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.info-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.address-value {
+  font-family: monospace;
+  font-size: 0.95rem;
+}
+
+
+.input-group {
+  margin-bottom: 1.25rem;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.input-field-themed {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--primary-dark);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--border-radius-small);
+  color: var(--text-primary);
+  font-size: 1rem;
+  box-sizing: border-box;
+  /* 确保 padding 不会撑大宽度 */
+}
+
+.input-field-themed:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.3);
+}
+
+.transaction-actions .btn-tx-action {
+  flex-grow: 1;
+  /* 让交易按钮平均分配空间 */
+}
+
+.btn-sign {
+  background-color: #E67E22;
+  /* 橙色用于签名，突出其重要性 */
+}
+
+.btn-sign:hover:not(:disabled) {
+  background-color: #D35400;
+}
+
+.btn-send {
+  background-color: #2ECC71;
+  /* 绿色用于发送 */
+}
+
+.btn-send:hover:not(:disabled) {
+  background-color: #27AE60;
+}
+
+
+.transaction-details-card h3 {
+  border-bottom: 1px solid var(--accent-blue);
+  padding-bottom: 0.5rem;
+}
+
+.tx-detail-item {
+  margin-bottom: 1rem;
+}
+
+.tx-detail-item h4 {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+
+.bytes-display {
+  background-color: var(--primary-dark);
+  padding: 0.75rem;
+  border-radius: var(--border-radius-small);
+  font-family: monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+  border: 1px solid var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.link-themed {
+  color: var(--secondary-blue);
+  text-decoration: none;
+}
+
+.link-themed:hover {
+  text-decoration: underline;
+  color: var(--primary-blue);
+}
+
+.app-footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--accent-blue);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Loading Spinner from Button.tsx - ensure it's visible on dark theme */
 .loading-spinner {
   height: 20px;
   width: 20px;
@@ -47,11 +325,14 @@ body {
 }
 
 .spinner-track {
-  opacity: 0.25;
+  stroke: rgba(var(--text-primary-rgb), 0.3);
+  /* Use RGB for opacity */
+  opacity: 0.3;
 }
 
 .spinner-head {
-  opacity: 0.75;
+  stroke: var(--primary-blue);
+  fill: var(--primary-blue);
 }
 
 @keyframes spin {
@@ -64,185 +345,10 @@ body {
   }
 }
 
-.wallet-button {
-  padding: 12px 24px;
-  font-size: 16px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.wallet-button:hover {
-  background-color: #45a049;
-}
-
-.wallet-info {
-  margin-top: 2rem;
-  padding: 1rem;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-}
-
-.wallet-info h2 {
-  margin-top: 0;
-  color: #4CAF50;
-}
-
-.wallet-info p {
-  word-break: break-all;
-  font-family: monospace;
-  background: #fff;
-  padding: 0.5rem;
-  border-radius: 4px;
-}
-
-.faucet-button {
-  margin-top: 1rem;
-  padding: 12px 24px;
-  font-size: 16px;
-  background-color: #2196F3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.faucet-button:hover {
-  background-color: #1976D2;
-}
-
-.faucet-status {
-  margin-top: 1rem;
-  padding: 0.5rem;
-  border-radius: 4px;
-  background-color: #E8F5E9;
-  color: #2E7D32;
-}
-
-.faucet-status.error {
-  background-color: #FFEBEE;
-  color: #C62828;
-}
-
-.transaction-button {
-  margin-top: 1rem;
-  padding: 12px 24px;
-  font-size: 16px;
-  background-color: #9C27B0;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.transaction-button:hover {
-  background-color: #7B1FA2;
-}
-
-.transaction-status {
-  margin-top: 1rem;
-  padding: 0.5rem;
-  border-radius: 4px;
-  background-color: #E8F5E9;
-  color: #2E7D32;
-}
-
-.transaction-status.error {
-  background-color: #FFEBEE;
-  color: #C62828;
-}
-
-.button-group {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 1rem;
-}
-
-.sign-button {
-  margin-top: 1rem;
-  padding: 12px 24px;
-  font-size: 16px;
-  background-color: #FF9800;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.sign-button:hover {
-  background-color: #F57C00;
-}
-
-.transaction-info {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: #fff;
-  border-radius: 4px;
-}
-
-.transaction-info h3 {
-  margin-top: 0;
-  color: #666;
-  font-size: 1rem;
-}
-
-.bytes {
-  word-break: break-all;
-  font-family: monospace;
-  font-size: 0.875rem;
-  background: #f5f5f5;
-  padding: 0.5rem;
-  border-radius: 4px;
-  margin: 0;
-}
-
-.send-button {
-  margin-top: 1rem;
-  padding: 12px 24px;
-  font-size: 16px;
-  background-color: #E91E63;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.send-button:hover {
-  background-color: #C2185B;
-}
-
-.transaction-inputs {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-}
-
-.input-group {
-  margin-bottom: 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.input-field {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-family: monospace;
-  margin-top: 0.25rem;
-}
-
-.input-group small {
-  margin-top: 0.25rem;
-  color: #666;
-}
+/* Remove old styles if they conflict */
+/*
+.button {
+  display: none;
+  /* Or update its styles */
+/* }
+*/
