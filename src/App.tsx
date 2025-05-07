@@ -14,6 +14,8 @@ import Button from "./Button";
 const passkeySavedName = "Sui Passkey Example";
 const authenticatorAttachment = "cross-platform";
 
+type View = "DASHBOARD" | "TRANSFER" | "AI_ASSISTANT";
+
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -44,6 +46,7 @@ const App: React.FC = () => {
   const [chatCommand, setChatCommand] = useState("");
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [activeView, setActiveView] = useState<View>("DASHBOARD");
 
   const fetchBalance = useCallback(async (showAiMessage = false) => {
     if (!walletAddress) return;
@@ -77,6 +80,7 @@ const App: React.FC = () => {
       setWalletAddress(address);
       setPasskeyInstance(passkey);
       setAiMessage(`钱包创建成功！地址: ${address}`);
+      setActiveView("DASHBOARD");
       console.log("Wallet created with address:", address);
     } catch (error) {
       console.error("Error creating wallet:", error);
@@ -155,15 +159,13 @@ const App: React.FC = () => {
     setAiMessage("正在解析您的指令...");
     const command = chatCommand.toLowerCase().trim();
 
-    // Balance inquiry
     if (command === "查询余额" || command === "查余额" || command === "余额") {
       if (!walletAddress) {
         setAiMessage("请先创建或加载钱包后再查询余额。");
       } else {
-        await fetchBalance(true); // Pass true to show AI message
+        await fetchBalance(true);
       }
     }
-    // Transfer command
     else {
       const transferRegex = /(?:给|向)\s*(.+?)\s*(?:转账|转)\s*([\d.]+)\s*(?:sui|个sui)/i;
       const match = chatCommand.match(transferRegex);
@@ -182,11 +184,13 @@ const App: React.FC = () => {
             setRecipientAddress(formattedRecipient);
             const success = await executeCreateTransaction(formattedRecipient, amountInput);
             if (success) {
-              // Message is set within executeCreateTransaction
+              setAiMessage(`交易已创建。收款人: ${formattedRecipient}, 金额: ${amountInput} SUI. 请前往“转账”页面签名并发送。`);
+              setActiveView("TRANSFER"); // Switch to transfer view
             }
           } else {
-            setRecipientAddress("");
-            setAiMessage(`我识别到您想给“${recipientInput}”转账 ${amountInput} SUI。请在下方的“接收地址”输入框中输入“${recipientInput}”的SUI地址，然后点击“创建交易”。金额已为您预填。`);
+            setRecipientAddress(""); // Clear recipient if not a valid address
+            setAiMessage(`我识别到您想给“${recipientInput}”转账 ${amountInput} SUI。请在“转账”页面的“接收地址”输入框中输入“${recipientInput}”的SUI地址，然后点击“创建交易”。金额已为您预填。`);
+            setActiveView("TRANSFER"); // Switch to transfer view
           }
         }
       } else {
@@ -302,6 +306,7 @@ const App: React.FC = () => {
       const address = keypair.getPublicKey().toSuiAddress();
       setWalletAddress(address);
       setAiMessage(`钱包加载成功！地址: ${address}`);
+      setActiveView("DASHBOARD");
     } catch (error) {
       console.error("加载钱包失败:", error);
       const errorMessage = error instanceof Error ? error.message : '未知错误';
@@ -318,7 +323,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="app-main">
-        {!walletAddress && (
+        {!walletAddress ? (
           <section className="card wallet-setup-card">
             <h2>开始使用</h2>
             <p className="wallet-setup-hint">请先创建或加载您的 Passkey 钱包以启用 AI 助手和交易功能。</p>
@@ -359,148 +364,168 @@ const App: React.FC = () => {
               </p>
             </div>
           </section>
-        )}
-
-        {walletAddress && (
+        ) : (
           <>
-            <section className="card ai-interaction-card">
-              <h2>AI 助手</h2>
-              <div className="chat-input-container">
-                <input
-                  type="text"
-                  placeholder="例如：给 0x... 转账 0.01 sui 或 查询余额"
-                  value={chatCommand}
-                  onChange={(e) => setChatCommand(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !isAiProcessing && handleChatCommand()}
-                  className="chat-input"
-                  disabled={isAiProcessing}
-                />
-                <Button onClick={handleChatCommand} loading={isAiProcessing} disabled={isAiProcessing || !chatCommand.trim()} className="btn-themed btn-send-command">
-                  发送指令
-                </Button>
+            {/* Navigation Bar */}
+            <nav className="app-navigation button-group" style={{ marginBottom: '2rem', justifyContent: 'center' }}>
+              <Button onClick={() => setActiveView("DASHBOARD")} className={`btn-themed ${activeView === "DASHBOARD" ? "btn-active" : ""}`}>仪表盘</Button>
+              <Button onClick={() => setActiveView("TRANSFER")} className={`btn-themed ${activeView === "TRANSFER" ? "btn-active" : ""}`}>转账</Button>
+              <Button onClick={() => setActiveView("AI_ASSISTANT")} className={`btn-themed ${activeView === "AI_ASSISTANT" ? "btn-active" : ""}`}>AI 助手</Button>
+            </nav>
+
+            {/* Global AI Message Display */}
+            {aiMessage && (
+              <div className="ai-message-display" style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                <p><strong>AI:</strong> {aiMessage}</p>
               </div>
-              {aiMessage && (
-                <div className="ai-message-display">
-                  <p><strong>AI:</strong> {aiMessage}</p>
+            )}
+
+            {/* Dashboard View */}
+            {activeView === "DASHBOARD" && (
+              <section className="card wallet-dashboard-card">
+                <h2>钱包仪表盘</h2>
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-label">地址:</span>
+                    <span className="info-value address-value">{walletAddress}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">余额:</span>
+                    <span className="info-value">{balance ? (parseInt(balance) / 1_000_000_000).toFixed(4) : "0"} SUI</span>
+                  </div>
                 </div>
-              )}
-            </section>
-
-            <section className="card wallet-dashboard-card">
-              <h2>钱包仪表盘</h2>
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">地址:</span>
-                  <span className="info-value address-value">{walletAddress}</span>
+                <div className="button-group" style={{ marginTop: '1rem' }}>
+                  <Button
+                    onClick={() => fetchBalance(true)}
+                    disabled={faucetLoading}
+                    loading={faucetLoading}
+                    className="btn-themed btn-query-balance"
+                  >
+                    查询余额
+                  </Button>
+                  <Button
+                    onClick={requestFaucet}
+                    disabled={faucetLoading}
+                    loading={faucetLoading}
+                    className="btn-themed btn-faucet"
+                  >
+                    请求测试币
+                  </Button>
                 </div>
-                <div className="info-item">
-                  <span className="info-label">余额:</span>
-                  <span className="info-value">{balance ? (parseInt(balance) / 1_000_000_000).toFixed(4) : "0"} SUI</span>
+              </section>
+            )}
+
+            {/* Transfer View */}
+            {activeView === "TRANSFER" && (
+              <section className="card transfer-operations-card">
+                <h2>转账操作</h2>
+                <div className="manual-transfer-section">
+                  <h3>执行转账</h3>
+                  <div className="input-group">
+                    <label htmlFor="recipientAddress">接收地址:</label>
+                    <input
+                      id="recipientAddress"
+                      type="text"
+                      placeholder="接收地址 (0x...)"
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      className="input-field-themed"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label htmlFor="transferAmount">转账金额 (SUI):</label>
+                    <input
+                      id="transferAmount"
+                      type="text"
+                      placeholder="转账金额 (SUI)"
+                      value={transferAmount}
+                      onChange={(e) => setTransferAmount(e.target.value)}
+                      className="input-field-themed"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <Button
-                onClick={() => fetchBalance(true)} // Button to explicitly query balance via AI
-                disabled={faucetLoading} // Can reuse faucetLoading or add a new one if needed
-                loading={faucetLoading}
-                className="btn-themed btn-query-balance"
-              >
-                通过AI查询余额
-              </Button>
+                <div className="button-group transaction-actions">
+                  <Button
+                    onClick={manualCreateTransaction}
+                    disabled={createLoading || !recipientAddress || !transferAmount}
+                    loading={createLoading}
+                    className="btn-themed btn-tx-action"
+                  >
+                    创建交易
+                  </Button>
+                  <Button
+                    onClick={handleSignTransaction}
+                    disabled={signLoading || !txBytes}
+                    loading={signLoading}
+                    className="btn-themed btn-tx-action btn-sign"
+                  >
+                    签名交易
+                  </Button>
+                  <Button
+                    onClick={handleSendTransaction}
+                    disabled={sendLoading || !txBytes || !signature}
+                    loading={sendLoading}
+                    className="btn-themed btn-tx-action btn-send"
+                  >
+                    发送交易
+                  </Button>
+                </div>
 
-              <Button
-                onClick={requestFaucet}
-                disabled={faucetLoading}
-                loading={faucetLoading}
-                className="btn-themed btn-faucet"
-              >
-                请求测试币
-              </Button>
+                {(txBytes || signature || txDigest) && (
+                  <div className="transaction-details-card" style={{ marginTop: '2rem' }}>
+                    <h3>交易详情</h3>
+                    {txBytes && (
+                      <div className="tx-detail-item">
+                        <h4>交易字节 (Base64):</h4>
+                        <p className="bytes-display">{txBytes}</p>
+                      </div>
+                    )}
+                    {signature && (
+                      <div className="tx-detail-item">
+                        <h4>签名:</h4>
+                        <p className="bytes-display">{signature}</p>
+                      </div>
+                    )}
+                    {txDigest && (
+                      <div className="tx-detail-item">
+                        <h4>交易摘要:</h4>
+                        <p className="bytes-display">
+                          <a
+                            href={`https://suiscan.xyz/testnet/tx/${txDigest}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link-themed"
+                          >
+                            {txDigest}
+                          </a>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
 
-              <div className="manual-transfer-section">
-                <h3>手动转账 / AI预填</h3>
-                <div className="input-group">
-                  <label htmlFor="recipientAddress">接收地址:</label>
+            {/* AI Assistant View */}
+            {activeView === "AI_ASSISTANT" && (
+              <section className="card ai-interaction-card">
+                <h2>AI 助手</h2>
+                <div className="chat-input-container">
                   <input
-                    id="recipientAddress"
                     type="text"
-                    placeholder="接收地址 (0x...)"
-                    value={recipientAddress}
-                    onChange={(e) => setRecipientAddress(e.target.value)}
-                    className="input-field-themed"
+                    placeholder="例如：给 0x... 转账 0.01 sui 或 查询余额"
+                    value={chatCommand}
+                    onChange={(e) => setChatCommand(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && !isAiProcessing && handleChatCommand()}
+                    className="chat-input"
+                    disabled={isAiProcessing}
                   />
+                  <Button onClick={handleChatCommand} loading={isAiProcessing} disabled={isAiProcessing || !chatCommand.trim()} className="btn-themed btn-send-command">
+                    发送指令
+                  </Button>
                 </div>
-                <div className="input-group">
-                  <label htmlFor="transferAmount">转账金额 (SUI):</label>
-                  <input
-                    id="transferAmount"
-                    type="text"
-                    placeholder="转账金额 (SUI)"
-                    value={transferAmount}
-                    onChange={(e) => setTransferAmount(e.target.value)}
-                    className="input-field-themed"
-                  />
-                </div>
-              </div>
-
-              <div className="button-group transaction-actions">
-                <Button
-                  onClick={manualCreateTransaction}
-                  disabled={createLoading || !recipientAddress || !transferAmount}
-                  loading={createLoading}
-                  className="btn-themed btn-tx-action"
-                >
-                  创建交易
-                </Button>
-                <Button
-                  onClick={handleSignTransaction}
-                  disabled={signLoading || !txBytes}
-                  loading={signLoading}
-                  className="btn-themed btn-tx-action btn-sign"
-                >
-                  签名交易
-                </Button>
-                <Button
-                  onClick={handleSendTransaction}
-                  disabled={sendLoading || !txBytes || !signature}
-                  loading={sendLoading}
-                  className="btn-themed btn-tx-action btn-send"
-                >
-                  发送交易
-                </Button>
-              </div>
-            </section>
-
-            {(txBytes || signature || txDigest) && (
-              <section className="card transaction-details-card">
-                <h3>交易详情</h3>
-                {txBytes && (
-                  <div className="tx-detail-item">
-                    <h4>交易字节 (Base64):</h4>
-                    <p className="bytes-display">{txBytes}</p>
-                  </div>
-                )}
-                {signature && (
-                  <div className="tx-detail-item">
-                    <h4>签名:</h4>
-                    <p className="bytes-display">{signature}</p>
-                  </div>
-                )}
-                {txDigest && (
-                  <div className="tx-detail-item">
-                    <h4>交易摘要:</h4>
-                    <p className="bytes-display">
-                      <a
-                        href={`https://suiscan.xyz/testnet/tx/${txDigest}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="link-themed"
-                      >
-                        {txDigest}
-                      </a>
-                    </p>
-                  </div>
-                )}
+                {/* AI messages are now displayed globally, but you could have chat history here */}
               </section>
             )}
           </>
