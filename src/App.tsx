@@ -16,6 +16,15 @@ const authenticatorAttachment = "cross-platform";
 
 type View = "OVERVIEW" | "SEND" | "ASSISTANT";
 
+// Helper function to resolve recipient alias to address
+const resolveRecipient = (input: string, addressBook: { [alias: string]: string }): string => {
+  const lowerInput = input.toLowerCase();
+  if (addressBook[lowerInput]) {
+    return addressBook[lowerInput];
+  }
+  return input;
+};
+
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -34,6 +43,12 @@ const App: React.FC = () => {
   const [transferAmount, setTransferAmount] = useState("");
   const [balance, setBalance] = useState<string | null>(null);
   const client = new SuiClient({ url: getFullnodeUrl("testnet") });
+
+  const [addressBook, setAddressBook] = useState<{ [alias: string]: string }>({
+    alice: "0xb88717ea113d28d7167adece61f8addd1c4086bb6cb2c0f845782190f42dc74f", // 示例地址，请替换为有效地址
+    bob: "0x28b2cc6a90939a4d51a23e98199d0a0ef0ff982dae9b3beff80ea39828d06b76",   // 示例地址，请替换为有效地址
+    // 您可以在此添加更多或允许用户动态添加
+  });
 
   const passkeyProvider = new BrowserPasskeyProvider(passkeySavedName, {
     rpName: passkeySavedName,
@@ -96,15 +111,22 @@ const App: React.FC = () => {
       setAiMessage("Please create or load a wallet first.");
       return false;
     }
-    if (!recipient) {
-      setAiMessage("Please enter a recipient address.");
+
+    const resolvedRecipient = resolveRecipient(recipient, addressBook);
+
+    if (!resolvedRecipient) {
+      setAiMessage("Please enter a recipient address or alias.");
       return false;
     }
-    if (!recipient.match(/^(0x)?[0-9a-fA-F]{64}$/)) {
-      setAiMessage("Invalid recipient address format.");
+    if (!resolvedRecipient.match(/^(0x)?[0-9a-fA-F]{64}$/)) {
+      if (recipient.toLowerCase() !== resolvedRecipient.toLowerCase()) { // Alias was used but resolved to invalid
+        setAiMessage(`The alias "${recipient}" resolves to an invalid SUI address: "${resolvedRecipient}". Please check your address book or enter a valid 0x address.`);
+      } else { // Input was not an alias and is invalid
+        setAiMessage("Invalid recipient address format. Please enter a valid 0x address or a known alias.");
+      }
       return false;
     }
-    const formattedRecipient = recipient.startsWith("0x") ? recipient : `0x${recipient}`;
+    const formattedRecipient = resolvedRecipient.startsWith("0x") ? resolvedRecipient : `0x${resolvedRecipient}`;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setAiMessage("Please enter a valid transfer amount.");
       return false;
@@ -115,7 +137,8 @@ const App: React.FC = () => {
       return false;
     }
     setCreateLoading(true);
-    setAiMessage("Creating transaction...");
+    const recipientDisplay = recipient.toLowerCase() !== formattedRecipient.toLowerCase() ? `${recipient} (${formattedRecipient})` : formattedRecipient;
+    setAiMessage(`Creating transaction to ${recipientDisplay} for ${amount} SUI...`);
     try {
       const { data: coins } = await client.getCoins({
         owner: walletAddress,
@@ -137,7 +160,7 @@ const App: React.FC = () => {
       setTxBytes(base64Bytes);
       setSignature("");
       setTxDigest(null);
-      setAiMessage(`Transaction created. Click "Sign Transaction" to continue. Recipient: ${formattedRecipient}, Amount: ${amount} SUI.`);
+      setAiMessage(`Transaction created. Click "Sign Transaction" to continue. Recipient: ${recipientDisplay}, Amount: ${amount} SUI.`);
       return true;
     } catch (error) {
       console.error("Failed to create transaction:", error);
@@ -147,7 +170,7 @@ const App: React.FC = () => {
     } finally {
       setCreateLoading(false);
     }
-  }, [walletAddress, passkeyInstance, client, balance]);
+  }, [walletAddress, passkeyInstance, client, balance, addressBook]);
 
   const handleChatCommand = async () => {
     if (!chatCommand.trim()) {
@@ -181,12 +204,15 @@ const App: React.FC = () => {
 
         setTransferAmount(amountInput); // Pre-fill UI
 
-        if (recipientInput.match(/^(0x)?[0-9a-fA-F]{64}$/)) {
-          const formattedRecipient = recipientInput.startsWith("0x") ? recipientInput : `0x${recipientInput}`;
-          setRecipientAddress(formattedRecipient); // Pre-fill UI
+        const resolvedRecipientAddress = resolveRecipient(recipientInput, addressBook);
 
-          setAiMessage(`Preparing transaction: Send ${amountInput} SUI to ${formattedRecipient}...`);
-          const createSuccess = await executeCreateTransaction(formattedRecipient, amountInput);
+        if (resolvedRecipientAddress.match(/^(0x)?[0-9a-fA-F]{64}$/)) {
+          const formattedRecipient = resolvedRecipientAddress.startsWith("0x") ? resolvedRecipientAddress : `0x${resolvedRecipientAddress}`;
+          setRecipientAddress(formattedRecipient); // Pre-fill UI with the resolved (valid) address
+
+          const recipientDisplay = recipientInput.toLowerCase() !== formattedRecipient.toLowerCase() ? `${recipientInput} (${formattedRecipient})` : formattedRecipient;
+          setAiMessage(`Preparing transaction: Send ${amountInput} SUI to ${recipientDisplay}...`);
+          const createSuccess = await executeCreateTransaction(resolvedRecipientAddress, amountInput); // Use resolved address
 
           if (createSuccess) {
             setAiMessage("Transaction created, requesting Passkey signature...");
@@ -198,12 +224,16 @@ const App: React.FC = () => {
             }
           }
         } else {
-          setRecipientAddress("");
-          setAiMessage(`I understand you want to send ${amountInput} SUI to "${recipientInput}". Please enter the SUI address for "${recipientInput}" in the "Recipient Address" field on the "Send" page, then click "Create Transaction". The amount has been pre-filled for you.`);
+          setRecipientAddress(recipientInput); // Pre-fill with original input for user to correct
+          if (recipientInput.toLowerCase() !== resolvedRecipientAddress.toLowerCase()) { // Alias was used but resolved to invalid
+            setAiMessage(`The alias "${recipientInput}" resolves to an invalid SUI address: "${resolvedRecipientAddress}". Please check your address book or enter a valid SUI address in the "Send" page. The amount has been pre-filled for you.`);
+          } else { // Input was not an alias and is invalid
+            setAiMessage(`"${recipientInput}" is not a valid SUI address or a known alias. Please enter the SUI address for "${recipientInput}" in the "Recipient Address" field on the "Send" page, then click "Create Transaction". The amount has been pre-filled for you.`);
+          }
           setActiveView("SEND");
         }
       } else {
-        setAiMessage("I couldn't understand that command. You can try: \"check balance\" or \"send [amount] sui to [address]\".");
+        setAiMessage("I couldn't understand that command. You can try: \"check balance\" or \"send [amount] sui to [address or alias]\".");
       }
     }
     setChatCommand("");
@@ -263,8 +293,10 @@ const App: React.FC = () => {
       setAiMessage("Please create or load a wallet first.");
       return;
     }
+    // recipientAddress will be used here, which could be an alias or an address
+    // executeCreateTransaction will handle the resolution
     if (!recipientAddress) {
-      setAiMessage("Please enter a recipient address.");
+      setAiMessage("Please enter a recipient address or alias.");
       return;
     }
     if (!transferAmount) {
