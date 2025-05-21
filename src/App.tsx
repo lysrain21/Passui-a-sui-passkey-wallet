@@ -16,6 +16,63 @@ const authenticatorAttachment = "cross-platform";
 
 type View = "OVERVIEW" | "SEND" | "ASSISTANT";
 
+// DeepSeek API Configuration
+const DEEPSEEK_API_KEY = "sk-c1874120a14a4340895003dc17e78e47"; // Your API Key
+const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
+
+// TypeScript interfaces for DeepSeek API
+interface DeepSeekMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+  name?: string;
+  tool_calls?: any;
+  tool_call_id?: string;
+}
+
+interface DeepSeekRequestBody {
+  model: string;
+  messages: DeepSeekMessage[];
+  frequency_penalty?: number;
+  logit_bias?: Record<string, number>;
+  logprobs?: boolean;
+  max_tokens?: number;
+  n?: number;
+  presence_penalty?: number;
+  response_format?: { type: "text" | "json_object" };
+  seed?: number;
+  stop?: string | string[];
+  stream?: boolean;
+  temperature?: number;
+  top_p?: number;
+  top_logprobs?: number;
+  tools?: any[];
+  tool_choice?: any;
+  user?: string;
+}
+
+interface DeepSeekResponseChoice {
+  index: number;
+  message: DeepSeekMessage;
+  finish_reason: string;
+  logprobs?: any;
+}
+
+interface DeepSeekResponseUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+interface DeepSeekResponseBody {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: DeepSeekResponseChoice[];
+  usage: DeepSeekResponseUsage;
+  system_fingerprint?: string;
+}
+
 // Helper function to resolve recipient alias to address
 const resolveRecipient = (input: string, addressBook: { [alias: string]: string }): string => {
   const lowerInput = input.toLowerCase();
@@ -45,9 +102,9 @@ const App: React.FC = () => {
   const client = new SuiClient({ url: getFullnodeUrl("testnet") });
 
   const [addressBook, setAddressBook] = useState<{ [alias: string]: string }>({
-    alice: "0xb88717ea113d28d7167adece61f8addd1c4086bb6cb2c0f845782190f42dc74f", // 示例地址，请替换为有效地址
-    bob: "0x28b2cc6a90939a4d51a23e98199d0a0ef0ff982dae9b3beff80ea39828d06b76",   // 示例地址，请替换为有效地址
-    // 您可以在此添加更多或允许用户动态添加
+    alice: "0xb88717ea113d28d7167adece61f8addd1c4086bb6cb2c0f845782190f42dc74f", // Example address, please replace with a valid address
+    bob: "0x28b2cc6a90939a4d51a23e98199d0a0ef0ff982dae9b3beff80ea39828d06b76",   // Example address, please replace with a valid address
+    // You can add more here or allow users to add dynamically
   });
 
   const passkeyProvider = new BrowserPasskeyProvider(passkeySavedName, {
@@ -62,6 +119,99 @@ const App: React.FC = () => {
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [activeView, setActiveView] = useState<View>("OVERVIEW");
+
+  // AI Agent函数 - 将用户输入格式化为标准命令
+  const formatCommandWithAgent = async (rawCommand: string): Promise<string> => {
+    setAiMessage("AI assistant is understanding your command...");
+
+    const systemPrompt = `You are an AI assistant for a SUI crypto wallet. Your task is to format user's natural language commands into a specific structured format.
+If the user wants to check their balance, format the command as: 'check balance'.
+If the user wants to send SUI, format the command as: 'send [amount] sui to [recipient_alias_or_address]'.
+Ensure the amount is a number and the recipient is a valid alias or address.
+
+Examples:
+- User: 'send 0.5 sui to bob' -> Output: 'send 0.5 sui to bob'
+- User: 'Check my balance' -> Output: 'check balance'
+- User: 'Transfer 100 coins to Alice' -> Output: 'send 100 sui to alice'
+- User: 'how much money do I have?' -> Output: 'check balance'
+- User: 'pay 25 SUI to 0x123abc' -> Output: 'send 25 sui to 0x123abc'
+- User: 'I want to send 0.005 SUI to Bob's address' -> Output: 'send 0.005 sui to bob'
+
+Only output the formatted command. Do not add any other text, explanations, or markdown formatting.`;
+
+    const requestBody: DeepSeekRequestBody = {
+      model: "deepseek-chat",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: rawCommand },
+      ],
+      stream: false,
+      temperature: 0.1, // Lower temperature for more deterministic command formatting
+    };
+
+    try {
+      const response = await fetch(DEEPSEEK_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { error: { message: response.statusText } };
+        }
+        console.error("DeepSeek API error:", errorData);
+        const apiErrorMessage = errorData?.error?.message || response.statusText;
+        setAiMessage(`AI assistant call failed: ${apiErrorMessage}. Will attempt to execute the original input directly.`);
+        return rawCommand; // Fallback to raw command
+      }
+
+      const responseData: DeepSeekResponseBody = await response.json();
+
+      if (responseData.choices && responseData.choices.length > 0 && responseData.choices[0].message) {
+        const formattedCommand = responseData.choices[0].message.content.trim();
+        // Basic validation if the command looks like one of the expected formats
+        if (formattedCommand.toLowerCase().startsWith("send ") || formattedCommand.toLowerCase() === "check balance") {
+          setAiMessage(`AI assistant has formatted the command as: "${formattedCommand}"`);
+          return formattedCommand;
+        } else {
+          setAiMessage(`AI assistant returned an unexpected format: "${formattedCommand}". Will attempt to use the original input or simpler parsing.`);
+          console.warn("DeepSeek unexpected format:", formattedCommand);
+          // Fallback to simpler regex parsing if AI fails to format correctly
+          const transferPatterns = [
+            /(?:send|transfer|pay)\s*([\d.]+)\s*(?:sui)?\s*to\s*(\S+)/i,
+          ];
+          for (const pattern of transferPatterns) {
+            const match = rawCommand.toLowerCase().match(pattern);
+            if (match) {
+              const amount = match[1];
+              const recipient = match[2].replace(/的$/, "");
+              return `send ${amount} sui to ${recipient}`;
+            }
+          }
+          if (rawCommand.toLowerCase().includes("balance")) {
+            return "check balance";
+          }
+          return rawCommand;
+        }
+      } else {
+        setAiMessage("AI assistant failed to format the command, will attempt to execute the original input directly.");
+        console.warn("DeepSeek no choices or message in response:", responseData);
+        return rawCommand; // Fallback
+      }
+    } catch (error) {
+      console.error("Error calling DeepSeek API:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown network/fetch error';
+      setAiMessage(`Error calling AI assistant: ${errorMessage}. Will attempt to execute the original input directly.`);
+      return rawCommand; // Fallback to raw command on network or other errors
+    }
+  };
 
   const fetchBalance = useCallback(async (showAiMessage = false) => {
     if (!walletAddress) return;
@@ -179,64 +329,84 @@ const App: React.FC = () => {
     }
 
     setIsAiProcessing(true);
-    setAiMessage("Parsing your command...");
-    const command = chatCommand.toLowerCase().trim();
+    setAiMessage("Processing your command..."); // Initial message
 
-    if (command === "check balance" || command === "balance" || command === "show balance") {
+    // 调用AI Agent格式化指令
+    const formattedCommandFromAgent = await formatCommandWithAgent(chatCommand);
+
+    // AI Agent函数内部会更新aiMessage，这里使用它格式化后的命令
+    const commandToProcess = formattedCommandFromAgent.toLowerCase().trim();
+
+    if (commandToProcess === "check balance" || commandToProcess === "balance" || commandToProcess === "show balance") {
       if (!walletAddress) {
-        setAiMessage("Please create or load a wallet before checking the balance.");
+        setAiMessage("Please create or load a wallet first, then check the balance.");
       } else {
-        await fetchBalance(true);
+        await fetchBalance(true); // fetchBalance会设置自己的AI消息
       }
     }
     else {
-      const transferRegex = /(?:send|transfer)\s*([\d.]+)\s*(?:sui)\s*to\s*(.+)/i;
-      const match = chatCommand.match(transferRegex);
+      // 用于匹配 "send [amount] sui to [address or alias]" 的正则表达式
+      // 如果AI Agent完美格式化，这个正则会匹配成功
+      const transferRegex = /(?:send|transfer)\s*([\d.]+)\s*(?:sui)?\s*to\s*(.+)/i;
+      const match = commandToProcess.match(transferRegex);
 
       if (match) {
         if (!walletAddress || !passkeyInstance) {
-          setAiMessage("Please create or load a wallet before making a transfer.");
+          setAiMessage("Please create or load a wallet first, then proceed with the transfer.");
           setIsAiProcessing(false);
+          setChatCommand("");
           return;
         }
         const amountInput = match[1].trim();
         const recipientInput = match[2].trim();
 
-        setTransferAmount(amountInput); // Pre-fill UI
+        // AI 助手已解析指令，现在开始自动执行流程
+        setAiMessage(`AI understands your command as: Send ${amountInput} SUI to ${recipientInput}. Preparing transaction...`);
 
         const resolvedRecipientAddress = resolveRecipient(recipientInput, addressBook);
+        const recipientDisplay = recipientInput.toLowerCase() !== resolvedRecipientAddress.toLowerCase()
+          ? `${recipientInput} (${resolvedRecipientAddress})`
+          : resolvedRecipientAddress;
 
-        if (resolvedRecipientAddress.match(/^(0x)?[0-9a-fA-F]{64}$/)) {
-          const formattedRecipient = resolvedRecipientAddress.startsWith("0x") ? resolvedRecipientAddress : `0x${resolvedRecipientAddress}`;
-          setRecipientAddress(formattedRecipient); // Pre-fill UI with the resolved (valid) address
+        if (!resolvedRecipientAddress.match(/^(0x)?[0-9a-fA-F]{64}$/)) {
+          setAiMessage(`The recipient "${recipientInput}" parsed by AI is not a valid SUI address or known alias. Please correct and try again, or operate manually on the 'Send' page.`);
+          setTransferAmount(amountInput); // 预填写UI
+          setRecipientAddress(recipientInput); // 用原始输入预填写，让用户修正
+          setActiveView("SEND");
+          setIsAiProcessing(false);
+          setChatCommand("");
+          return;
+        }
 
-          const recipientDisplay = recipientInput.toLowerCase() !== formattedRecipient.toLowerCase() ? `${recipientInput} (${formattedRecipient})` : formattedRecipient;
-          setAiMessage(`Preparing transaction: Send ${amountInput} SUI to ${recipientDisplay}...`);
-          const createSuccess = await executeCreateTransaction(resolvedRecipientAddress, amountInput); // Use resolved address
+        // 1. 创建交易
+        // executeCreateTransaction will set its own aiMessage
+        const createSuccess = await executeCreateTransaction(resolvedRecipientAddress, amountInput);
 
-          if (createSuccess) {
-            setAiMessage("Transaction created, requesting Passkey signature...");
-            const signedSignature = await handleSignTransaction();
+        if (createSuccess && txBytes) { // txBytes 应该在 executeCreateTransaction 成功后被设置
+          // 2. 签名交易
+          // handleSignTransaction will set its own aiMessage
+          const signedSignature = await handleSignTransaction();
 
-            if (signedSignature) {
-              setAiMessage("Transaction signed successfully! Sending transaction automatically...");
-              await handleSendTransaction(txBytes, signedSignature);
-            }
+          if (signedSignature) {
+            // 3. 发送交易
+            // handleSendTransaction will set its own aiMessage
+            await handleSendTransaction(txBytes, signedSignature);
+          } else {
+            // If signing fails or is canceled, aiMessage has already been set by handleSignTransaction
+            // A more explicit message might be needed to indicate the process has stopped.
+            setAiMessage(aiMessage || "Transaction signing was canceled or failed, process stopped.");
           }
         } else {
-          setRecipientAddress(recipientInput); // Pre-fill with original input for user to correct
-          if (recipientInput.toLowerCase() !== resolvedRecipientAddress.toLowerCase()) { // Alias was used but resolved to invalid
-            setAiMessage(`The alias "${recipientInput}" resolves to an invalid SUI address: "${resolvedRecipientAddress}". Please check your address book or enter a valid SUI address in the "Send" page. The amount has been pre-filled for you.`);
-          } else { // Input was not an alias and is invalid
-            setAiMessage(`"${recipientInput}" is not a valid SUI address or a known alias. Please enter the SUI address for "${recipientInput}" in the "Recipient Address" field on the "Send" page, then click "Create Transaction". The amount has been pre-filled for you.`);
-          }
-          setActiveView("SEND");
+          // If transaction creation fails, aiMessage has already been set by executeCreateTransaction
+          // A more explicit message might be needed to indicate the process has stopped.
+          setAiMessage(aiMessage || "Transaction creation failed, process stopped.");
         }
       } else {
-        setAiMessage("I couldn't understand that command. You can try: \"check balance\" or \"send [amount] sui to [address or alias]\".");
+        // 如果AI Agent格式化了，但仍然不匹配已知命令
+        setAiMessage(`AI assistant processed your command as: "${formattedCommandFromAgent}", but I couldn't fully understand it. You can try: "check balance" or "send [amount] sui to [address or alias]"`);
       }
     }
-    setChatCommand("");
+    setChatCommand(""); // 处理后清空输入
     setIsAiProcessing(false);
   };
 
@@ -564,7 +734,7 @@ const App: React.FC = () => {
                 <div className="chat-input-container">
                   <input
                     type="text"
-                    placeholder="e.g., send 0.01 sui to 0x... or check balance"
+                    placeholder="e.g., send 0.01 SUI to Bob, or check my balance"
                     value={chatCommand}
                     onChange={(e) => setChatCommand(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && !isAiProcessing && handleChatCommand()}
