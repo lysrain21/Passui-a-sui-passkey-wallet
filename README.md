@@ -1,6 +1,6 @@
-# Sui Passkey AI Wallet Example
+# Sui Passkey AI Wallet: A Blueprint for Next-Gen DApp Interfaces
 
-This project is an example application demonstrating the use of the Sui Passkey SDK to create and manage a wallet, send transactions on the Sui network, and interact with an AI assistant for common wallet operations. It's built with React, TypeScript, and Vite.
+This project showcases a powerful paradigm for modern DApp front-end development. While implemented as a Sui Passkey AI Wallet, it serves as a comprehensive example of integrating seamless Passkey authentication, AI-driven user interaction, and core blockchain operations. The patterns demonstrated here are applicable to a wide range of decentralized applications, illustrating how to build intuitive and secure user experiences on the Sui network. It's built with React, TypeScript, and Vite.
 
 ## Features
 
@@ -28,7 +28,7 @@ This project is an example application demonstrating the use of the Sui Passkey 
 *   **Frontend:** React, TypeScript
 *   **Build Tool:** Vite
 *   **Sui Interaction:** [`@mysten/sui`](https://www.npmjs.com/package/@mysten/sui) (Sui TypeScript SDK)
-*   **AI Integration:** DeepSeek API (via `axios` for HTTP requests)
+*   **AI Integration:** DeepSeek API (via `fetch` API for HTTP requests)
 
 ## Getting Started
 
@@ -80,7 +80,6 @@ pnpm preview
 ## Key Dependencies
 
 *   [`@mysten/sui`](https://www.npmjs.com/package/@mysten/sui): For all Sui blockchain interactions, including Passkey operations, client communication, transaction building, and faucet requests.
-*   [`axios`](https://www.npmjs.com/package/axios): Used for making HTTP requests to the DeepSeek API.
 *   [`react`](https://reactjs.org/): For building the user interface.
 *   [`typescript`](https://www.typescriptlang.org/): For static typing.
 *   [`vite`](https://vitejs.dev/): As the build tool and development server.
@@ -91,18 +90,19 @@ For more detailed information on the Sui Passkey SDK and other Sui TypeScript SD
 
 ## How It Works
 
-The application initializes a `SuiClient` to connect to the Sui testnet. It uses the `BrowserPasskeyProvider` from `@mysten/sui/keypairs/passkey` to manage Passkey credentials.
+The application initializes a `SuiClient` to connect to the Sui testnet and uses the `BrowserPasskeyProvider` from `@mysten/sui/keypairs/passkey` to manage Passkey credentials. It demonstrates a typical workflow for AI-assisted DApp interactions:
 
 *   **Wallet Creation/Loading:**
     *   `PasskeyKeypair.getPasskeyInstance()` is used to create a new Passkey and associate it with a new Sui address.
     *   `PasskeyKeypair.signAndRecover()` along with `findCommonPublicKey()` is used to recover an existing Passkey and its associated Sui address by prompting the user for two signatures.
-*   **AI Assistant:**
-    *   User input from the "Assistant" view is sent to the DeepSeek API via the `formatCommandWithAgent` function in [`src/App.tsx`](src/App.tsx).
-    *   A system prompt guides the AI to format natural language into structured commands like `send [amount] sui to [recipient]` or `check balance`.
-    *   The application then parses this formatted command to perform actions like fetching the balance or initiating a transaction flow.
-*   **Transactions:**
-    *   Transactions are built using the `Transaction` class from `@mysten/sui/transactions`.
-    *   The `passkeyInstance.signTransaction()` method is used to sign the transaction using the device's Passkey.
-    *   `client.executeTransactionBlock()` sends the signed transaction to the network.
+*   **AI-Driven Interaction:**
+    *   User's natural language commands are processed by an AI (DeepSeek API via the `formatCommandWithAgent` function in [`src/App.tsx`](src/App.tsx)).
+    *   A system prompt guides the AI to translate these commands into structured, actionable DApp instructions (e.g., `send [amount] sui to [recipient]`, `check balance`).
+    *   This showcases a user-friendly interface for complex blockchain actions, abstracting away the underlying technicalities.
+*   **Transaction Lifecycle:**
+    *   Based on the AI-parsed command or direct user input, the application follows a standard transaction lifecycle:
+        *   **Construction:** Transactions are built using the `Transaction` class from `@mysten/sui/transactions`.
+        *   **Signing:** The `passkeyInstance.signTransaction()` method leverages the device's Passkey for secure, user-friendly signing.
+        *   **Execution:** `client.executeTransactionBlock()` sends the signed transaction to the Sui network.
 
-This project serves as a practical example of integrating Passkey authentication with Sui blockchain operations, enhanced by an AI-driven command interface.
+This project not only serves as a practical example of integrating Passkey authentication with Sui blockchain operations but also as a blueprint for developing next-generation DApps with intuitive, AI-enhanced user interfaces on the Sui platform.
