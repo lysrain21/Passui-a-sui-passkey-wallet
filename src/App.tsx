@@ -17,7 +17,7 @@ const authenticatorAttachment = "cross-platform";
 type View = "OVERVIEW" | "SEND" | "ASSISTANT";
 
 // DeepSeek API Configuration
-const DEEPSEEK_API_KEY = "sk-c1874120a14a4340895003dc17e78e47"; // Your API Key
+const DEEPSEEK_API_KEY = "sk-c1874120a14a4340895003dc17e78e41"; // Your API Key
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 // TypeScript interfaces for DeepSeek API
